@@ -1,80 +1,91 @@
 #!/usr/bin/env python
+import argparse
 import mincemeat
-import funcs
-import sys
+import random
 
-if (len(sys.argv) != 2):
-	print ("Usage: python k_means.py <k>")
-	sys.exit()
-
-k = int(sys.argv[1])
-	
-# Get points
-with open("points.txt") as f:
-    content = f.readlines()
-points = []
-for p in content:
-	x = float(p.strip().split()[0])
-	y = float(p.strip().split()[1])
-	points.append((x , y))
-
-# Generate random k points
-k_means = 	[(funcs.genRandom() , funcs.genRandom()) for i in range(k)]
-print("Initial centers: ", k_means)
 
 def mapfn(k, v):
-	import shared as sh
-	
-	means = v[1]
-	c = sh.findClosestCenter(v[0], means)
-	yield c, v
+    """Finds the center closest to the point `v[0]` among the given centers `v[1]`."""
+    point = v[0]
+    centers = v[1]
+    min_dist = 2  # the maximum squared distance between points in [0,1]x[0,1]
+    min_center = centers[0]
+    for center in centers:
+        dist = (center[0] - point[0])**2 + (center[1] - point[1])**2  # squared distance
+        if dist < min_dist:
+            min_dist = dist
+            min_center = center
+
+    yield min_center, v
+
 
 def reducefn(k, vs):
-	import shared as sh
-		
-	means = vs[0][1]
-	points = [vs[i][0] for i in range(len(vs))]
-	
-	newCenter = sh.getAvg(points)
-	return (newCenter, points)
+    """Returns the mean of the given points"""
+    points = [v[0] for v in vs]
+    sum_x, sum_y = 0, 0
+    for x, y in points:
+        sum_x += x
+        sum_y += y
+    n = len(points)
+    new_center = (float(sum_x)/n, float(sum_y)/n)
+    return new_center, points
 
-# ------- Run mincemeat -------
-improved = True
-results = None
-iterations = 0
-while(improved):
-	# Tweak data
-	data = [(x, k_means) for x in points]
-	datasource = dict(enumerate(data))
-	
-	s = mincemeat.Server()
-	s.datasource = datasource
-	s.mapfn = mapfn
-	s.reducefn = reducefn
 
-	results = s.run_server(password="pass")
-	
-	#Check for improvement in iteration
-	improved = funcs.checkImprovement(results)
-	
-	#Update means
-	k_means = [results[key][0] for key in results] + funcs.findMissingMeans(k_means, results)
-	
-	if(improved):
-		print("improving iteration")
-	else:
-		print("none improving iteration")
-		
-	iterations += 1
-	
-# Setup final results
-finalResults = dict()
-for mean in k_means:
-	if mean in results:
-		finalResults[mean] = results[mean][1]
-	else:
-		finalResults[mean] = []
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-f", "--filename", default="data.txt",
+                        help="File containing the points to cluster (default: data.txt)")
+    parser.add_argument("-k", default=3, help="Number of clusters (default: 3)")
+    args = parser.parse_args()
 
-print("Convergence after ", iterations-1, " iterations. final results:")
-for key, val in finalResults.items():
-	print(key, " : ", val)
+    # Load data (points in [0,1]x[0,1])
+    points = []
+    with open(args.filename) as f:
+        content = f.readlines()
+    for line in content:
+        point = line.strip().split()
+        points.append((float(point[0]), float(point[1])))
+
+    # Init with k random centers
+    centers = [(random.uniform(0.0, 1.0), random.uniform(0.0, 1.0)) for i in range(args.k)]
+    print("Initial centers: ", centers)
+
+    # Run MapReduce on mincemeat
+    iterations = 0
+    keep_going = True
+    results = None
+    while keep_going:
+        # Adjust data to mincemeat format
+        data = [(point, centers) for point in points]
+        datasource = dict(enumerate(data))
+
+        # Create a server
+        s = mincemeat.Server()
+        s.datasource = datasource
+        s.mapfn = mapfn
+        s.reducefn = reducefn
+
+        results = s.run_server(password="pass")
+
+        # If there is a center that was updated, continue to further iteration
+        keep_going = False
+        for key in results:
+            if results[key][0] != key:
+                keep_going = True
+
+        # Find centers that weren't selected by any point
+        unselected_centers = [center for center in centers if center not in results]
+
+        # Update centers
+        centers = [results[key][0] for key in results] + unselected_centers
+
+        print("Finished iteration", iterations)
+        iterations += 1
+
+    # Print final results
+    print("Convergence after", iterations-1, "iterations. Final results:")
+    for center in centers:
+        if center in results:
+            print(center, ":", results[center][1])
+        else:
+            print(center, ":", [])
