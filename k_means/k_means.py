@@ -5,7 +5,7 @@ import random
 
 
 def mapfn(k, v):
-    """Finds the center closest to the point `v[0]` among the given centers `v[1]`."""
+    """Finds the center closest to the point among the given centers"""
     point = v[0]
     centers = v[1]
     min_dist = 2  # the maximum squared distance between points in [0,1]x[0,1]
@@ -33,14 +33,12 @@ def reducefn(k, vs):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-f", "--filename", default="data.txt",
-                        help="File containing the points to cluster (default: data.txt)")
     parser.add_argument("-k", default=3, help="Number of clusters (default: 3)")
     args = parser.parse_args()
 
-    # Load data (points in [0,1]x[0,1])
+    # Load the points
     points = []
-    with open(args.filename) as f:
+    with open("points.txt") as f:
         content = f.readlines()
     for line in content:
         point = line.strip().split()

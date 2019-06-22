@@ -1,37 +1,44 @@
 # Intro to DS, HW #3 – Map Reduce
+Submitted by Ron Kabas (311504484) and Eitan-Hai Mashiah (206349045).
 
-## K-Means algorithm
-Our algorithm performs a few MapReduce iterations, where in each iteration:
-- The Map function takes as input a point *p* and the current *k* centers,
-finds the center *c* closest to the point, and yields *(c, p)*.
-- The Reduce function takes as input a center *c* and a set of points *P* 
-which chose *p* as a center, finds their mean *c'*, and returns (c', P).
+In each section, run the client first from the appropriate folder (using 
+the command in that section), and then in another terminal from the same folder, 
+run the server with the following command:
+```bash
+$ python mincemeat.py -p pass localhost
+```
 
-The algorithm stops when none of the centers are updated, which means that
-all the points picked the same center in this iteration.
+### K-Means
+The program loads the points from the `points.txt` file (located in the 
+`k_means` folder). It performs a few MapReduce iterations, and stops when none of
+the centers are updated, which means that all the points picked the same center in
+that iteration. Finally, it prints the resulting clusters alongside their centers. 
 
-### Usage
+To run the client:
+```bash
+$ python k_means.py [-h] [-k K]
+```
+where K is the number of required clusters (default: 3). In addition, note that 
+each iteration requires another run of the server.
 
- The client's optional arguments are as follows:
-  ```bash
-  $ python k_means/k_means.py -h
-  usage: k_means.py [-h] [-f FILENAME] [-k K]
-  
-  optional arguments:
-  -h, --help            show this help message and exit
-  -f FILENAME, --filename FILENAME
-                        File containing the points to cluster (default:
-                        data.txt)
-  -k K                  Number of clusters (default: 3)
-  ```
-  
-  To run the server (each iteration requires another run of the server):
-  ```bash
-  $ python k_means/mincemeat.py -p pass localhost
-  ```
+## FindTriangles
+The program loads the graph represented by its adjacency list from the `grpah.txt`
+file (located in the `find_triangle` folder), and prints all the triangles 
+(cliques of size 3) in the graph.
 
-## FindTriangles function
-TODO: Describe the implementation
+To run the client:
+```bash
+$ python find_triangles.py
+```
 
-## Pseudo-synonyms detection algorithm
-TODO: Describe the implementation
+## Pseudo synonyms
+The program loads the 3-word queries from the `queries.txt` file (located in the
+`pseudo_synonyms` folder), and prints all the pseudo-synonyms from them.
+
+To run the client:
+```bash
+$ python find_triangles.py
+```
+
+Note that since this task requires two MapReduce stages, the server needs to be run 
+twice sequentially.

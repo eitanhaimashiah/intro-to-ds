@@ -1,63 +1,65 @@
 #!/usr/bin/env python
 import mincemeat
-	
-# Get input
-with open("input.txt") as f:
-    content = f.readlines()
-data = [x.strip() for x in content]
-datasource = dict(enumerate(data))
 
 
-def initMap(k, v):	
-	d = v.split(" ")
-	s = [x.strip() for x in d]
-	
-	lst = sorted([s[0],s[2]], key=str.lower)
-	yield (lst[0],lst[1]) , s[1]
+def mapfn1(k, v):
+    """
+    Yields a pair where the key is the two words at the edges of the sentence,
+    and the value is the middle word, which is a candidate to be a pseudo
+    synonym.
+    """
+    d = v.split(" ")
+    s = [x.strip() for x in d]
+    yield tuple(sorted([s[0], s[2]])), s[1]
 
-def initReduce(k, vs):	
-	return vs
 
-# ------- Run first MR -------
-s = mincemeat.Server()
-s.datasource = datasource
-s.mapfn = initMap
-s.reducefn = initReduce
+def reducefn1(k, vs):
+    """Returns the values (pseudo-synonym candidates)"""
+    return vs
 
-results = s.run_server(password="pass")
-# print (results)
 
-data = [results[key] for key in results]
-datasource = dict(enumerate(data))
+def mapfn2(k, v):
+    """Yields all pairs of pseudo-synonym candidates with the value 1"""
+    for i in range(len(v)-1):
+        first = v[i]
+        for j in range(i+1, len(v)):
+            second = v[j]
+            yield tuple(sorted([first, second])), 1
 
-def synonymsMap(k, v):	
-	# Generate all pairs of words in v
-	pairs = []
-	for i in range(len(v)):
-		for j in range(i+1, len(v)):
-			pairs.append((v[i], v[j]))
 
-	
-	for p in pairs:
-		lst = sorted(p, key=str.lower)
-		yield (lst[0], lst[1]), 1
-		
-def synonymsReduce(k, vs):
-	return sum(vs)
-	
-# ------- Run second MR -------
-s = mincemeat.Server()
-s.datasource = datasource
-s.mapfn = synonymsMap
-s.reducefn = synonymsReduce
+def reducefn2(k, vs):
+    """Returns the number of occurrences of the given pair"""
+    return sum(vs)
 
-results = s.run_server(password="pass")
-# print (results)
 
-for key in results:
-	if (results[key] > 1):
-		print(key[0] + " - " + key[1] + " (%d)" % results[key])
-	
-	
-	
-	
+if __name__ == "__main__":
+    # Load the queries
+    with open("queries.txt") as f:
+        content = f.readlines()
+    data = [x.strip() for x in content]
+    datasource = dict(enumerate(data))
+
+    # Run first MapReduce on mincemeat
+    s = mincemeat.Server()
+    s.datasource = datasource
+    s.mapfn = mapfn1
+    s.reducefn = reducefn1
+
+    results = s.run_server(password="pass")
+
+    # Prepare the data for the second MapReduce
+    data = [results[key] for key in results]
+    datasource = dict(enumerate(data))
+
+    # Run second MapReduce on mincemeat
+    s = mincemeat.Server()
+    s.datasource = datasource
+    s.mapfn = mapfn2
+    s.reducefn = reducefn2
+
+    results = s.run_server(password="pass")
+
+    # Print the pseudo-synonyms
+    for key in results:
+        if results[key] > 1:
+            print("%s - %s (%d)" % (key[0], key[1], results[key]))
